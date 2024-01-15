@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Tuple, List, Callable, Iterable
 
 import numpy as np
 
@@ -8,18 +8,44 @@ from gym import spaces
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, Rectangle
 
+# TPoint = Tuple[float, float]
+# TSquaredRegion = Tuple[TPoint, TPoint]
+# TRegion = Callable[[TPoint], int]
+# TTransition = Callable[[TPoint, TPoint, int], TPoint]
+# TParams = Iterable[Iterable[float]]
+
+
+# def default_transition(S:TPoint, A:TPoint, region:int = 0) -> TPoint:
+#     tau = (1., -1.)
+#     sigma = (.01, .3)
+#     tr = lambda s,a, t,v: (s + a*t + np.random.normal(0, v, 2)).astype(np.float32)
+#     return tuple(tr(np.array(S), np.array(A), tau[region], sigma[region]))
+
+
+# class MultiRegionContinuosGridWorldEspec:
+#     def __init__(self,
+#         size: TPoint = (10., 10.),
+#         start: TSquaredRegion = ([-5., -9.5], [9.5, -2.]), 
+#         goals: List[TSquaredRegion] = [ ([7.5, 7.5], [10., 10.]) ], 
+#         region: TRegion = lambda s: (s[1]>-4. and s[1]<4.),
+#         params: TParams = [ (1., .01), (-1, .3) ],
+#         transition: TTransition = default_transition
+#     ):
+#     pass
+
+
 class NormalMoveEnv():
     def __init__(self, 
-                 wolrd_size=10., 
-                 punishment=-100, 
-                 sigma=(.01, .3), 
-                 tau=(1., -1.), 
-                 start=([-5., -9.5],[9.5, -2.]), 
-                 goals=[([7.5,7.5],[10.,10.])], 
-                 walls=[([-8.,-1.],[10., 1.])],
-                 beta=None,
-                 transition=None
-                ):
+            wolrd_size=10., 
+            punishment=-100, 
+            sigma=(.01, .3), 
+            tau=(1., -1.), 
+            start=([-5., -9.5],[9.5, -2.]), 
+            goals=[([7.5,7.5],[10.,10.])], 
+            walls=[([-8.,-1.],[10., 1.])],
+            beta=None,
+            transition=None
+        ):
         self.wolrd_size = wolrd_size
         self.start = start
         self.punishment = punishment
@@ -96,7 +122,7 @@ class NormalMoveEnv():
         width = diff(*list(zip(self.start[0], self.start[1]))[0])
         height = diff(*list(zip(self.start[0], self.start[1]))[1])
         ax.add_patch(Rectangle(self.start[0], width, height, edgecolor='grey', facecolor='white', fill=True, alpha=.5))
-        ax.text(*self.start[0], f'S', alpha=.5)
+        ax.text(*self.start[0], f'I', alpha=.5)
         if self.initial_state is not None:
             ax.add_patch(Circle(self.initial_state, radius=.2, edgecolor='white', facecolor='white', fill=True))
 
