@@ -62,7 +62,7 @@ class RRT:
         self.goal_dist = goal_dist
         self.actions = list(range(4))
 
-    # def explore(self, max_iterations=100):
+    # def random_explore(self, max_iterations=100):
     #     new_node = self.tree
     #     for _ in range(max_iterations):
     #         random_action = np.random.choice(4, 1)[0]
@@ -86,15 +86,10 @@ class RRT:
         if max_iterations>0:
             moves = [self.transition(old_node.value, a) for a in self.actions]
             for i,move in enumerate(moves):
-                # best = np.argmin(np.array([self.goal_dist(p) for p in moves]))
-                # nearest_node = self.find_nearest(move)
                 new_node = self.extend(old_node, move, self.actions[i])
-                if self.goal_dist(move) <= 0.1:
-                    return
-                else:
+                if new_node is not None and self.goal_dist(move) > 0.1:
                     self.explore(max_iterations-1, new_node)
-
-
+        
 
     def get_path(self, point):
         node = self.find_nearest(point)
@@ -103,6 +98,7 @@ class RRT:
             node = node.parent
             if node.cost is not None: 
                 path.append(node)
+
         return path
 
     def find_nearest(self, point, tree=None):
@@ -118,10 +114,21 @@ class RRT:
         return best
 
     def extend(self, from_node, to_point, action):
-        new_node = Node(to_point, from_node, action)
-        from_node.children.append(new_node)
-        # from_node.cost = action
-        return new_node
+        nearest_node = self.find_nearest(to_point)
+        other_node_dist = np.linalg.norm(np.array(nearest_node.value)-np.array(to_point))
+        move_dist = np.linalg.norm(np.array(to_point)-np.array(from_node.value))
+        if move_dist==0:
+            # return from_node
+            return None
+        elif other_node_dist < (0.5*move_dist):
+            # return nearest_node
+            return None
+        else:
+            # if move_dist>0 and other_node_dist > 0.1:
+            new_node = Node(to_point, from_node, action)
+            from_node.children.append(new_node)
+            # from_node.cost = action
+            return new_node
     
     def plot(self, ax=None, path=None):
         if ax is None:
@@ -145,7 +152,7 @@ class RRT:
                     ax.plot([node.parent.value[0], node.value[0]], [node.parent.value[1], node.value[1]], 'r-', linewidth=.5)
                 if node.cost is not None:
                     path_acts.append(f'{node.cost}')
-            ax.text(-10,-14, '-'.join(path_acts))
+            ax.text(-10,-14, '-'.join(path_acts[::-1]))
         return ax
 
    
@@ -188,28 +195,53 @@ class Agent:
     def plan(self, s):
         def transition(s,a):
             sigma, tau = self.model.infer(s)
-            return self.env.transition(s,a,tau,sigma)
+            
+            s_ = self.env.transition(s,a,tau,sigma)
+
+            out_bound = (not self.env.observation_space.contains(s_))
+            in_wall = any([wall.contains(s_) for wall in self.env.walls])
+            in_closed_gate = any([gate.contains(s_) for i,gate in enumerate(self.env.gates) if not self.env.pressed_buttons[i]])
+            if not(out_bound) and not(in_wall) and not(in_closed_gate):
+                return s_
+            else:
+                return s
         def goal_dist(s):
             mid_point = lambda goal: np.array([goal.low[0] + ((goal.low[0] - goal.high[0])**2)**.5, goal.low[1] + ((goal.low[1] - goal.high[1])**2)**.5])
-            return min([np.linalg.norm(mid_point(goal)-s) for goal in self.env.goals])
+            if not(hasattr(self.env, 'pressed_buttons')) or all(self.env.pressed_buttons):
+                return min([np.linalg.norm(mid_point(goal)-s) for goal in self.env.goals])
+            else:
+                return min([np.linalg.norm(mid_point(button)-s) for i, button in enumerate(self.env.buttons) if not self.env.pressed_buttons[i]])
 
         has_no_plan = (len(self.plans)==0) or (self.plan_step >= len(self.plans[-1]))
+        if not has_no_plan:
+            err = np.linalg.norm(self.plans[-1][::-1][self.plan_step].parent.value - s)
+            has_no_plan = has_no_plan or (err >= 3)
         if has_no_plan:
-            self.plan_step = 1
+            self.plan_step = 0
             plan_tree = RRT(s, transition, goal_dist)
             plan_tree.explore(max_iterations=self.max_plan_size)
 
-            closest_goal = np.argmin(np.array([np.linalg.norm(goal.low-s) for goal in self.env.goals]))
-            goal_point = self.env.goals[closest_goal].low
-            actual_plan = plan_tree.get_path(goal_point)
+            if not(hasattr(self.env, 'pressed_buttons')) or all(self.env.pressed_buttons): 
+                closest_goal = np.argmin(np.array([np.linalg.norm(goal.low-s) for goal in self.env.goals]))
+                goal_point = self.env.goals[closest_goal].low
+            else:
+                next_button = [button for i, button in enumerate(self.env.buttons) if not self.env.pressed_buttons[i]][0]
+                goal_point = next_button.low
 
+            actual_plan = plan_tree.get_path(goal_point)
+            
             self.plan_trees.append(plan_tree)
             self.plans.append(actual_plan)
+
         
         try:
-            step = self.plans[-1][::-1][self.plan_step]
-            self.plan_step += 1
-            return step.cost
+            plan = self.plans[-1]
+            if len(plan) > 0:
+                step = plan[::-1][self.plan_step]
+                self.plan_step += 1
+                return step.cost
+            else:
+                return np.random.choice(4, 1)[0]
         except:
             print('---ERRO---')
             print('self.plans: ', len(self.plans))
