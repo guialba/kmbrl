@@ -57,6 +57,7 @@ class NormalMoveEnv():
         self.mu = lambda s,a: self.transition(s,a,self.tau[self.beta(s)], self.sigma[self.beta(s)]).astype(np.float32)
         self.walls = [spaces.Box(low=np.array(wall[0], dtype=np.float32), high=np.array(wall[1], dtype=np.float32), dtype=np.float32) for wall in walls]
         self.goals = [spaces.Box(low=np.array(goal[0], dtype=np.float32), high=np.array(goal[1], dtype=np.float32), dtype=np.float32) for goal in goals]
+        self.gates = []
         self.action_space = spaces.Discrete(4)
         self.observation_space = spaces.Box(low=-wolrd_size, high=wolrd_size, shape=(2,), dtype=np.float32)
         self.state = None

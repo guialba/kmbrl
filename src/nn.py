@@ -91,6 +91,8 @@ class Model:
 
     def __str__(self):
         return 'Model'
+    def __repr__(self):
+        return 'Model'
 
     def infer(self, s):
         with torch.no_grad():
@@ -328,7 +330,9 @@ class GeneralModel:
     
     def __str__(self):
         return 'GeneralModel'
-    
+    def __repr__(self):
+        return 'GeneralModel'
+
     def infer(self, s):
         with torch.no_grad():
             s = torch.from_numpy(s.reshape(1,2)).type(torch.DoubleTensor)
